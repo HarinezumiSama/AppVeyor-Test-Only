@@ -12,21 +12,17 @@ init:
 - cmd: git config --global core.autocrlf true
 environment:
   matrix:
-  - BuildOnly: true
-    TestOnly: false
-    TestRuntime: ''
-  - BuildOnly: false
-    TestOnly: true
-    TestRuntime: net40
-  - BuildOnly: false
-    TestOnly: true
-    TestRuntime: net472
+  - CI_ARG_BuildOnly: 'true'
+  - CI_ARG_BuildOnly: 'false'
+    CI_ARG_TestRuntime: 'net40'
+  - CI_ARG_BuildOnly: 'false'
+    CI_ARG_TestRuntime: 'net472'
 build_script:
 - ps: >-
     $Script:ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop
 
 
-    & ./build.ps1 -BuildOnly:$([bool]::Parse($env:BuildOnly)) -TestOnly:$([bool]::Parse($env:TestOnly)) -TestRuntime:$env:TestRuntime
+    & ./build.ps1 -BuildOnly:$([bool]::Parse($env:CI_ARG_BuildOnly)) -TestRuntime:$env:CI_ARG_TestRuntime
 artifacts:
 - path: '**/*'
   name: AllFiles

@@ -10,9 +10,6 @@ param
     [switch] $BuildOnly,
 
     [Parameter()]
-    [switch] $TestOnly,
-
-    [Parameter()]
     [string] $TestRuntime = $null,
 
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -82,10 +79,13 @@ process
     try
     {
         Write-Host "BuildOnly: $BuildOnly"
-        Write-Host "TestOnly: $TestOnly"
         Write-Host "TestRuntime: ""$TestRuntime"""
         [string] $unnamedArgumentsAsString = if ($UnnamedArguments) { ($UnnamedArguments | % { """$_""" }) -join ', ' } else { '<none>' }
         Write-Host "UnnamedArguments: $unnamedArgumentsAsString"
+
+        Write-LogSeparator
+
+        Get-ChildItem env:* | Sort-Object Name | Select-Object Name, Value | Format-Table * -Wrap
 
         Write-LogSeparator
 
@@ -97,6 +97,11 @@ process
         $s | ConvertTo-Json -Depth 4 | Out-Host
 
         Write-LogSeparator
+
+        if (!$BuildOnly -and $TestRuntime -ieq 'net472')
+        {
+            throw 'SIMULATED test failure.'
+        }
     }
     catch
     {
