@@ -12,10 +12,21 @@ init:
 - cmd: git config --global core.autocrlf true
 environment:
   matrix:
-  - TestRuntime: net40
-  - TestRuntime: net472
+  - BuildOnly: true
+    TestOnly: false
+    TestRuntime: ''
+  - BuildOnly: false
+    TestOnly: true
+    TestRuntime: net40
+  - BuildOnly: false
+    TestOnly: true
+    TestRuntime: net472
 build_script:
-- ps: "& './build.ps1' -TestRuntime $env:TestRuntime"
+- ps: >-
+    $Script:ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop
+
+
+    & ./build.ps1 -BuildOnly:$([bool]::Parse($env:BuildOnly)) -TestOnly:$([bool]::Parse($env:TestOnly)) -TestRuntime:$env:TestRuntime
 artifacts:
 - path: '**/*'
   name: AllFiles

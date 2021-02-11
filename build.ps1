@@ -7,7 +7,16 @@ using namespace System.Management.Automation
 param
 (
     [Parameter()]
-    [string] $TestRuntime = $null
+    [switch] $BuildOnly,
+
+    [Parameter()]
+    [switch] $TestOnly,
+
+    [Parameter()]
+    [string] $TestRuntime = $null,
+
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]] $UnnamedArguments = @()
 )
 begin
 {
@@ -72,7 +81,11 @@ process
 
     try
     {
-        Write-Host "TestRuntime = ""$TestRuntime"""
+        Write-Host "BuildOnly: $BuildOnly"
+        Write-Host "TestOnly: $TestOnly"
+        Write-Host "TestRuntime: ""$TestRuntime"""
+        [string] $unnamedArgumentsAsString = if ($UnnamedArguments) { ($UnnamedArguments | % { """$_""" }) -join ', ' } else { '<none>' }
+        Write-Host "UnnamedArguments: $unnamedArgumentsAsString"
 
         Write-LogSeparator
 
