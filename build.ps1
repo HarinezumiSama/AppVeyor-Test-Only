@@ -4,7 +4,11 @@ using namespace System
 using namespace System.Management.Automation
 
 [CmdletBinding(PositionalBinding = $false)]
-param ()
+param
+(
+    [Parameter()]
+    [string] $TestRuntime = $null
+)
 begin
 {
     $Script:ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop
@@ -54,29 +58,41 @@ begin
         return ($lines -join ([System.Environment]::NewLine))
     }
 
+    function Write-LogSeparator
+    {
+        Write-Host ''
+        Write-Host -ForegroundColor Magenta ('-' * 100)
+        Write-Host ''
+    }
 }
 process
 {
     [Console]::ResetColor()
-    Write-Host ''
+    Write-LogSeparator
 
     try
     {
+        Write-Host "TestRuntime = ""$TestRuntime"""
+
+        Write-LogSeparator
+
         & git config --list --show-origin --show-scope
 
-        Write-Host ('-' * 100)
+        Write-LogSeparator
 
         [string] $s = Get-Content -Raw -Path ./winFile.txt
         $s | ConvertTo-Json -Depth 4 | Out-Host
+
+        Write-LogSeparator
     }
     catch
     {
         [string] $errorDetails = Get-ErrorDetails
 
         [Console]::ResetColor()
-        Write-Host ''
+        Write-LogSeparator
         Write-Host -ForegroundColor Red $errorDetails
-        Write-Host ''
+        Write-LogSeparator
 
         throw
     }

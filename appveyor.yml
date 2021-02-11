@@ -10,8 +10,12 @@ configuration: Debug
 platform: Any CPU
 init:
 - cmd: git config --global core.autocrlf true
+environment:
+  matrix:
+  - TestRuntime: net40
+  - TestRuntime: net472
 build_script:
-- ps: "& './build.ps1'"
+- ps: "& './build.ps1' -TestRuntime $env:TestRuntime"
 artifacts:
 - path: '**/*'
   name: AllFiles
