@@ -10,7 +10,10 @@ param
     [switch] $BuildOnly,
 
     [Parameter()]
-    [string] $TestRuntime = $null,
+    [switch] $Deployment,
+
+    [Parameter()]
+    [string] $TestFramework = $null,
 
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]] $UnnamedArguments = @()
@@ -79,13 +82,23 @@ process
     try
     {
         Write-Host "BuildOnly: $BuildOnly"
-        Write-Host "TestRuntime: ""$TestRuntime"""
+        Write-Host "Deployment: $Deployment"
+        Write-Host "TestFramework: ""$TestFramework"""
         [string] $unnamedArgumentsAsString = if ($UnnamedArguments) { ($UnnamedArguments | % { """$_""" }) -join ', ' } else { '<none>' }
         Write-Host "UnnamedArguments: $unnamedArgumentsAsString"
 
+        # Write-LogSeparator
+        #
+        # Get-ChildItem env:* | Sort-Object Name | Select-Object Name, Value | Format-Table * -Wrap
+
         Write-LogSeparator
 
-        Get-ChildItem env:* | Sort-Object Name | Select-Object Name, Value | Format-Table * -Wrap
+        $PSScriptRoot `
+            | Get-ChildItem -Recurse `
+            | Select-Object -Property FullName, Mode, Length `
+            | Group-Object -Property { Split-Path -Parent $_.FullName } `
+            | % { ''; ''; "Directory ""$($_.Name)"""; ''; $_.Group } `
+            | Out-Host
 
         Write-LogSeparator
 
@@ -98,7 +111,32 @@ process
 
         Write-LogSeparator
 
-        if (!$BuildOnly -and $TestRuntime -ieq 'net472')
+        if ($BuildOnly)
+        {
+            Compress-Archive `
+                -Verbose `
+                -Path "$PSScriptRoot\*" `
+                -DestinationPath "$PSScriptRoot\artifact.zip" `
+                -CompressionLevel Optimal `
+                | Out-Null
+
+            Write-LogSeparator
+        }
+
+        if ($BuildOnly -or $Deployment)
+        {
+            return
+        }
+
+        [bool] $simulatedTestSuccess = $true #$TestFramework -ine 'net472'
+
+        Set-Content `
+            -LiteralPath "$PSScriptRoot\TestResult.txt" `
+            -Value "Simulated Test Result: $simulatedTestSuccess" `
+            -Encoding UTF8 `
+            | Out-Null
+
+        if (!$simulatedTestSuccess)
         {
             throw 'SIMULATED test failure.'
         }
