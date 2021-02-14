@@ -1,10 +1,13 @@
-version: 0.0.{build}-{branch}
+version: '1.0.{build}'
 pull_requests:
   do_not_increment_build_number: true
 branches:
   only:
   - master
+  - develop
+  - /feature\/.*/
 skip_tags: true
+skip_branch_with_pr: true
 image: Visual Studio 2019
 configuration: Debug
 platform: Any CPU
@@ -31,15 +34,25 @@ matrix:
   fast_finish: true
 for:
   -
+    branches:
+      only:
+        - develop
+        - /feature\/.*/
+    version: '[{branch}] #{build}'
+    environment:
+      CI_ARG_Deploy: 'false'
+    deploy: off
+  -
     matrix:
       only:
         - job_group: TestJobs
     artifacts:
       - path: '**/TestResult.txt'
-        name: TestResult
+        name: 'TestResult'
   -
     matrix:
       only:
+        - branch: master
         - job_group: DeployJobs
     after_build:
     - ps: >-
@@ -59,9 +72,9 @@ for:
 
         Write-Host -ForegroundColor Magenta ('-' * 100)
 
-        7z a """$publishDirectory\artifacts.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.*
+        7z a """$publishDirectory\artifacts-$env:APPVEYOR_BUILD_VERSION.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.*
 
-        7z a """$publishDirectory\scripts.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.ps1
+        7z a """$publishDirectory\scripts-$env:APPVEYOR_BUILD_VERSION.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.ps1
     artifacts:
       - path: '.publish\*.*'
         name: Artifacts
@@ -100,12 +113,12 @@ deploy:
   auth_token:
     secure: adP2nRSVOWYf+1BFWIpzWM2ZR+BVu5LM4khW2WfA4E+nBS85is15Pc5RipuA/zky
   artifact: Artifacts
-notifications:
-- provider: Email
-  to:
-  - vitalii.maklai@gmail.com
-  - '{{commitAuthorEmail}}'
-  subject: '[AppVeyor] {{projectName}} {{buildVersion}}: Build {{status}} ({{branch}} @ {{commitId}})'
-  on_build_success: true
-  on_build_failure: true
-  on_build_status_changed: false
+#notifications:
+#- provider: Email
+#  to:
+#  - vitalii.maklai@gmail.com
+#  - '{{commitAuthorEmail}}'
+#  subject: '[AppVeyor] {{projectName}} {{buildVersion}}: Build {{status}} ({{branch}} @ {{commitId}})'
+#  on_build_success: true
+#  on_build_failure: true
+#  on_build_status_changed: false
