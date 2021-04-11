@@ -111,7 +111,7 @@ deploy:
   description: '$(APPVEYOR_PROJECT_NAME) v$(APPVEYOR_BUILD_VERSION)'
   draft: true
   auth_token:
-    secure: adP2nRSVOWYf+1BFWIpzWM2ZR+BVu5LM4khW2WfA4E+nBS85is15Pc5RipuA/zky
+    secure: mSA6Z9mJtt2jbTlFZIWmAxTltAuZsOYbQkxQ/X2tOkpdp1SOJCjbR9dViEyOvAxD
   artifact: Artifacts
 #notifications:
 #- provider: Email
