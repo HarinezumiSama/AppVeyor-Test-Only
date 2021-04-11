@@ -48,7 +48,7 @@ for:
         - job_group: TestJobs
     artifacts:
       - path: '**/TestResult.txt'
-        name: 'TestResult'
+        name: 'TestResult-$(APPVEYOR_BUILD_VERSION)'
   -
     matrix:
       only:
