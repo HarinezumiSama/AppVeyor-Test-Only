@@ -48,7 +48,7 @@ for:
         - job_group: TestJobs
     artifacts:
       - path: '**/TestResult.txt'
-        name: 'TestResult-$(APPVEYOR_BUILD_VERSION)'
+        name: 'TestResult-$(APPVEYOR_BUILD_NUMBER)'
   -
     matrix:
       only:
@@ -58,23 +58,32 @@ for:
     - ps: >-
         $Script:ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop;
 
+        Microsoft.PowerShell.Core\Set-StrictMode -Version 1;
+
+        function Print-Directory
+        {
+            Write-Host -ForegroundColor Magenta ('-' * 100)
+
+            Get-ChildItem -Recurse `
+               | Select-Object -Property FullName, Mode, Length `
+               | Group-Object -Property { Split-Path -Parent $_.FullName } `
+               | % { ''; ''; "Directory ""$($_.Name)"""; ''; $_.Group } `
+               | Out-Host
+
+            Write-Host -ForegroundColor Magenta ('-' * 100)
+        }
+
         [string] $publishDirectory = '.publish'
 
         New-Item -ItemType Directory $publishDirectory -Force | Out-Null
 
-        Write-Host -ForegroundColor Magenta ('-' * 100)
+        Print-Directory
 
-        Get-ChildItem -Recurse `
-           | Select-Object -Property FullName, Mode, Length `
-           | Group-Object -Property { Split-Path -Parent $_.FullName } `
-           | % { ''; ''; "Directory ""$($_.Name)"""; ''; $_.Group } `
-           | Out-Host
+        7z a """$publishDirectory\artifacts-$env:APPVEYOR_BUILD_NUMBER.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.*
 
-        Write-Host -ForegroundColor Magenta ('-' * 100)
+        7z a """$publishDirectory\scripts-$env:APPVEYOR_BUILD_NUMBER.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.ps1
 
-        7z a """$publishDirectory\artifacts-$env:APPVEYOR_BUILD_VERSION.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.*
-
-        7z a """$publishDirectory\scripts-$env:APPVEYOR_BUILD_VERSION.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.ps1
+        Print-Directory
     artifacts:
       - path: '.publish\*.*'
         name: Artifacts
@@ -82,6 +91,7 @@ build_script:
 - ps: >-
     $Script:ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop;
 
+    Microsoft.PowerShell.Core\Set-StrictMode -Version 1;
 
     Write-Host -ForegroundColor Magenta ('-' * 100)
 
