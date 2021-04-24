@@ -75,7 +75,11 @@ for:
 
         [string] $publishDirectory = '.publish'
 
-        New-Item -ItemType Directory $publishDirectory -Force | Out-Null
+        [string] $publishSubdirectory = 'inner'
+
+        New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
+
+        New-Item -ItemType Directory -Path "$publishDirectory\$publishSubdirectory" -Force | Out-Null
 
         Print-Directory
 
@@ -83,9 +87,15 @@ for:
 
         7z a """$publishDirectory\scripts-$env:APPVEYOR_BUILD_NUMBER.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.ps1
 
+        #[string] $specialCharactersArchiveFilePath = "$publishDirectory\$publishSubdirectory\read me %100+ ($env:APPVEYOR_BUILD_NUMBER).zip"
+
+        [string] $specialCharactersArchiveFilePath = "$publishDirectory\$publishSubdirectory\read me 100+ ($env:APPVEYOR_BUILD_NUMBER).zip"
+
+        7z a """$specialCharactersArchiveFilePath""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- README.md
+
         Print-Directory
     artifacts:
-      - path: '.publish\*.*'
+      - path: '.publish\**\*.*'
         name: Artifacts
 build_script:
 - ps: >-
