@@ -122,6 +122,7 @@ build_script:
         -BuildOnly:([bool]::Parse($env:CI_ARG_BuildOnly)) `
         -Deployment:([bool]::Parse($env:CI_ARG_Deploy)) `
         -TestFramework:$env:CI_ARG_TestFramework
+test: off
 deploy:
 - provider: GitHub
   on:
