@@ -13,22 +13,33 @@ configuration: Debug
 platform: Any CPU
 init:
 - cmd: git config --global core.autocrlf true
+max_jobs: 1
 environment:
   global:
     CI_ARG_BuildOnly: 'false'
     CI_ARG_Deploy: 'false'
+    CI_ARG_AppveyorDownloadBuildJobArtifacts: 'false'
     CI_ARG_TestFramework: ''
+    CI_ARG_AppveyorApiToken:
+      secure: TAumCt718B/rr2JB4kFFuisH5ZV/TwNrZYWNL+UNmqI=
   matrix:
+  - job_group: BuildJob
+    job_name: 'Build'
+    CI_ARG_BuildOnly: 'true'
   - job_group: TestJobs
     job_name: 'Test: net40'
+    job_depends_on: BuildJob
+    CI_ARG_AppveyorDownloadBuildJobArtifacts: 'true'
     CI_ARG_TestFramework: 'net40'
   - job_group: TestJobs
     job_name: 'Test: net472'
+    job_depends_on: BuildJob
+    CI_ARG_AppveyorDownloadBuildJobArtifacts: 'true'
     CI_ARG_TestFramework: 'net472'
   - job_group: DeployJobs
     job_name: Deploy
     job_depends_on: TestJobs
-    CI_ARG_BuildOnly: 'true'
+    CI_ARG_AppveyorDownloadBuildJobArtifacts: 'true'
     CI_ARG_Deploy: 'true'
 matrix:
   fast_finish: true
@@ -42,6 +53,13 @@ for:
     environment:
       CI_ARG_Deploy: 'false'
     deploy: off
+  -
+    matrix:
+      only:
+        - job_group: BuildJob
+    artifacts:
+      - path: '**/*.ps1'
+        name: 'bin-$(APPVEYOR_BUILD_NUMBER)'
   -
     matrix:
       only:
@@ -121,7 +139,9 @@ build_script:
     & ./build.ps1 `
         -BuildOnly:([bool]::Parse($env:CI_ARG_BuildOnly)) `
         -Deployment:([bool]::Parse($env:CI_ARG_Deploy)) `
-        -TestFramework:$env:CI_ARG_TestFramework
+        -TestFramework:$env:CI_ARG_TestFramework `
+        -AppveyorDownloadBuildJobArtifacts:([bool]::Parse($env:CI_ARG_AppveyorDownloadBuildJobArtifacts)) `
+        -AppveyorApiToken $env:CI_ARG_AppveyorApiToken
 test: off
 deploy:
 - provider: GitHub

@@ -1,4 +1,4 @@
-﻿#Requires -Version 5
+﻿#Requires -Version 5.1
 
 using namespace System
 using namespace System.Management.Automation
@@ -15,6 +15,24 @@ param
     [Parameter()]
     [string] $TestFramework = $null,
 
+    [Parameter()]
+    [switch] $AppveyorDownloadBuildJobArtifacts,
+
+    [Parameter()]
+    [string] $AppveyorApiToken,
+
+    [Parameter()]
+    [Uri] $AppveyorApiRootUri = 'https://ci.appveyor.com/api',
+
+    [Parameter()]
+    [string] $AppveyorAccountName = $env:APPVEYOR_ACCOUNT_NAME,
+
+    [Parameter()]
+    [string] $AppveyorProjectSlug = $env:APPVEYOR_PROJECT_SLUG,
+
+    [Parameter()]
+    [string] $AppveyorBuildId = $env:APPVEYOR_BUILD_ID,
+
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]] $UnnamedArguments = @()
 )
@@ -22,6 +40,8 @@ begin
 {
     $Script:ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop
     Microsoft.PowerShell.Core\Set-StrictMode -Version 1
+
+    . "$PSScriptRoot\HarinezumiSama.Utilities.Appveyor.ps1"
 
     function Get-ErrorDetails([ValidateNotNull()] [System.Management.Automation.ErrorRecord] $errorRecord = $_)
     {
@@ -73,6 +93,68 @@ begin
         Write-Host -ForegroundColor Magenta ('-' * 100)
         Write-Host ''
     }
+
+    function Print-FileList
+    {
+        [CmdletBinding(PositionalBinding = $false)]
+        param ()
+
+        Write-LogSeparator
+
+        $PSScriptRoot `
+            | Get-ChildItem -Recurse `
+            | Select-Object -Property FullName, Mode, Length `
+            | Group-Object -Property { Split-Path -Parent $_.FullName } `
+            | % { ''; ''; "Directory ""$($_.Name)"""; ''; $_.Group } `
+            | Out-Host
+
+        Write-LogSeparator
+    }
+
+    function Download-AppveyorBuildJobArtifacts
+    {
+        [CmdletBinding(PositionalBinding = $false)]
+        param ()
+
+        if (!$AppveyorDownloadBuildJobArtifacts)
+        {
+            return
+        }
+
+        if ([string]::IsNullOrWhiteSpace($AppveyorApiToken))
+        {
+            throw [ArgumentException]::new('The Appveyor API token cannot be blank.', 'AppveyorApiToken')
+        }
+        if (!$AppveyorApiRootUri -or $AppveyorApiRootUri.Scheme -inotin @([uri]::UriSchemeHttp, [uri]::UriSchemeHttps))
+        {
+            throw [ArgumentException]::new('The valid URI of the Appveyor API must be provided.', 'AppveyorApiRootUri')
+        }
+        if ([string]::IsNullOrWhiteSpace($AppveyorAccountName))
+        {
+            throw [ArgumentException]::new('The current Appveyor account name cannot be blank.', 'AppveyorAccountName')
+        }
+        if ([string]::IsNullOrWhiteSpace($AppveyorProjectSlug))
+        {
+            throw [ArgumentException]::new('The current Appveyor project slug cannot be blank.', 'AppveyorProjectSlug')
+        }
+        if ([string]::IsNullOrWhiteSpace($AppveyorBuildId))
+        {
+            throw [ArgumentException]::new('The current Appveyor build ID cannot be blank.', 'AppveyorBuildId')
+        }
+
+        [ValidateNotNullOrEmpty()] [string] $artifactsContainerJobName = 'Build'
+
+        [ValidateNotNullOrEmpty()] [string] $downloadLocation = [System.IO.Path]::Combine($PSScriptRoot, '.downloadedArtifacts')
+
+        Download-AppveyorJobArtifacts `
+            -ApiRootUri $AppveyorApiRootUri `
+            -ApiToken $AppveyorApiToken `
+            -AccountName $AppveyorAccountName `
+            -ProjectSlug $AppveyorProjectSlug `
+            -BuildId $AppveyorBuildId `
+            -SourceJobName $artifactsContainerJobName `
+            -DestinationDirectory $downloadLocation
+    }
 }
 process
 {
@@ -87,24 +169,17 @@ process
         [string] $unnamedArgumentsAsString = if ($UnnamedArguments) { ($UnnamedArguments | % { """$_""" }) -join ', ' } else { '<none>' }
         Write-Host "UnnamedArguments: $unnamedArgumentsAsString"
 
-        # Write-LogSeparator
-        #
-        # Get-ChildItem env:* | Sort-Object Name | Select-Object Name, Value | Format-Table * -Wrap
-
         Write-LogSeparator
 
-        $PSScriptRoot `
-            | Get-ChildItem -Recurse `
-            | Select-Object -Property FullName, Mode, Length `
-            | Group-Object -Property { Split-Path -Parent $_.FullName } `
-            | % { ''; ''; "Directory ""$($_.Name)"""; ''; $_.Group } `
-            | Out-Host
+        Get-ChildItem env:* | Sort-Object Name | Select-Object Name, Value | Format-Table * -Wrap
 
-        Write-LogSeparator
+        Print-FileList
 
         & git config --list --show-origin --show-scope
 
         Write-LogSeparator
+
+        Download-AppveyorBuildJobArtifacts
 
         [string] $s = Get-Content -Raw -Path ./winFile.txt
         $s | ConvertTo-Json -Depth 4 | Out-Host
@@ -125,16 +200,19 @@ process
 
         if ($BuildOnly -or $Deployment)
         {
+            Print-FileList
             return
         }
 
         [bool] $simulatedTestSuccess = $true #$TestFramework -ine 'net472'
 
         Set-Content `
-            -LiteralPath "$PSScriptRoot\TestResult.txt" `
+            -LiteralPath "$PSScriptRoot\TestResult-$TestFramework.txt" `
             -Value "Simulated Test Result: $simulatedTestSuccess" `
             -Encoding UTF8 `
             | Out-Null
+
+        Print-FileList
 
         if (!$simulatedTestSuccess)
         {
