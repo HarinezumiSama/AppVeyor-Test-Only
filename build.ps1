@@ -33,6 +33,12 @@ param
     [Parameter()]
     [string] $AppveyorBuildId = $env:APPVEYOR_BUILD_ID,
 
+    [Parameter()]
+    [string] $AppveyorBuildNumber = $env:APPVEYOR_BUILD_NUMBER,
+
+    [Parameter()]
+    [string] $OriginalAppveyorBuildVersion = $env:APPVEYOR_BUILD_VERSION,
+
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]] $UnnamedArguments = @()
 )
@@ -166,16 +172,40 @@ process
         Write-Host "BuildOnly: $BuildOnly"
         Write-Host "Deployment: $Deployment"
         Write-Host "TestFramework: ""$TestFramework"""
+        Write-Host ''
+        Write-Host "AppveyorDownloadBuildJobArtifacts: $AppveyorDownloadBuildJobArtifacts"
+        Write-Host "AppveyorApiRootUri: ""$AppveyorApiRootUri"""
+        Write-Host "AppveyorAccountName: ""$AppveyorAccountName"""
+        Write-Host "AppveyorProjectSlug: ""$AppveyorProjectSlug"""
+        Write-Host "AppveyorBuildId: ""$AppveyorBuildId"""
+        Write-Host "AppveyorBuildNumber: ""$AppveyorBuildNumber"""
+        Write-Host "OriginalAppveyorBuildVersion: ""$OriginalAppveyorBuildVersion"""
+        Write-Host ''
         [string] $unnamedArgumentsAsString = if ($UnnamedArguments) { ($UnnamedArguments | % { """$_""" }) -join ', ' } else { '<none>' }
         Write-Host "UnnamedArguments: $unnamedArgumentsAsString"
 
         Write-LogSeparator
+
+        Add-AppveyorMessage `
+            -Verbose `
+            -Message "Starting the build for ""$AppveyorAccountName/$AppveyorProjectSlug""."
 
         Get-ChildItem env:* | Sort-Object Name | Select-Object Name, Value | Format-Table * -Wrap
 
         Print-FileList
 
         & git config --list --show-origin --show-scope
+
+        Write-LogSeparator
+
+        if ([string]::IsNullOrWhiteSpace($OriginalAppveyorBuildVersion))
+        {
+            throw [ArgumentException]::new('The original Appveyor build version cannot be blank.', 'OriginalAppveyorBuildVersion')
+        }
+
+        Update-AppveyorBuild `
+            -Verbose `
+            -Version "$OriginalAppveyorBuildVersion [1.2.3]"
 
         Write-LogSeparator
 
