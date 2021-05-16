@@ -10,34 +10,16 @@ param
     [switch] $BuildOnly,
 
     [Parameter()]
-    [switch] $Deployment,
-
-    [Parameter()]
-    [string] $TestFramework = $null,
-
-    [Parameter()]
-    [switch] $AppveyorDownloadBuildJobArtifacts,
-
-    [Parameter()]
-    [string] $AppveyorApiToken,
-
-    [Parameter()]
-    [Uri] $AppveyorApiRootUri = 'https://ci.appveyor.com/api',
-
-    [Parameter()]
     [string] $AppveyorAccountName = $env:APPVEYOR_ACCOUNT_NAME,
 
     [Parameter()]
     [string] $AppveyorProjectSlug = $env:APPVEYOR_PROJECT_SLUG,
 
     [Parameter()]
-    [string] $AppveyorBuildId = $env:APPVEYOR_BUILD_ID,
-
-    [Parameter()]
     [string] $AppveyorBuildNumber = $env:APPVEYOR_BUILD_NUMBER,
 
     [Parameter()]
-    [string] $OriginalAppveyorBuildVersion = $env:APPVEYOR_BUILD_VERSION,
+    [string] $AppveyorOriginalBuildVersion = $env:APPVEYOR_BUILD_VERSION,
 
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]] $UnnamedArguments = @()
@@ -46,8 +28,6 @@ begin
 {
     $Script:ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop
     Microsoft.PowerShell.Core\Set-StrictMode -Version 1
-
-    . "$PSScriptRoot\HarinezumiSama.Utilities.Appveyor.ps1"
 
     function Get-ErrorDetails([ValidateNotNull()] [System.Management.Automation.ErrorRecord] $errorRecord = $_)
     {
@@ -116,51 +96,6 @@ begin
 
         Write-LogSeparator
     }
-
-    function Download-AppveyorBuildJobArtifacts
-    {
-        [CmdletBinding(PositionalBinding = $false)]
-        param ()
-
-        if (!$AppveyorDownloadBuildJobArtifacts)
-        {
-            return
-        }
-
-        if ([string]::IsNullOrWhiteSpace($AppveyorApiToken))
-        {
-            throw [ArgumentException]::new('The Appveyor API token cannot be blank.', 'AppveyorApiToken')
-        }
-        if (!$AppveyorApiRootUri -or $AppveyorApiRootUri.Scheme -inotin @([uri]::UriSchemeHttp, [uri]::UriSchemeHttps))
-        {
-            throw [ArgumentException]::new('The valid URI of the Appveyor API must be provided.', 'AppveyorApiRootUri')
-        }
-        if ([string]::IsNullOrWhiteSpace($AppveyorAccountName))
-        {
-            throw [ArgumentException]::new('The current Appveyor account name cannot be blank.', 'AppveyorAccountName')
-        }
-        if ([string]::IsNullOrWhiteSpace($AppveyorProjectSlug))
-        {
-            throw [ArgumentException]::new('The current Appveyor project slug cannot be blank.', 'AppveyorProjectSlug')
-        }
-        if ([string]::IsNullOrWhiteSpace($AppveyorBuildId))
-        {
-            throw [ArgumentException]::new('The current Appveyor build ID cannot be blank.', 'AppveyorBuildId')
-        }
-
-        [ValidateNotNullOrEmpty()] [string] $artifactsContainerJobName = 'Build'
-
-        [ValidateNotNullOrEmpty()] [string] $downloadLocation = [System.IO.Path]::Combine($PSScriptRoot, '.downloadedArtifacts')
-
-        Download-AppveyorJobArtifacts `
-            -ApiRootUri $AppveyorApiRootUri `
-            -ApiToken $AppveyorApiToken `
-            -AccountName $AppveyorAccountName `
-            -ProjectSlug $AppveyorProjectSlug `
-            -BuildId $AppveyorBuildId `
-            -SourceJobName $artifactsContainerJobName `
-            -DestinationDirectory $downloadLocation
-    }
 }
 process
 {
@@ -170,25 +105,16 @@ process
     try
     {
         Write-Host "BuildOnly: $BuildOnly"
-        Write-Host "Deployment: $Deployment"
-        Write-Host "TestFramework: ""$TestFramework"""
         Write-Host ''
-        Write-Host "AppveyorDownloadBuildJobArtifacts: $AppveyorDownloadBuildJobArtifacts"
-        Write-Host "AppveyorApiRootUri: ""$AppveyorApiRootUri"""
         Write-Host "AppveyorAccountName: ""$AppveyorAccountName"""
         Write-Host "AppveyorProjectSlug: ""$AppveyorProjectSlug"""
-        Write-Host "AppveyorBuildId: ""$AppveyorBuildId"""
         Write-Host "AppveyorBuildNumber: ""$AppveyorBuildNumber"""
-        Write-Host "OriginalAppveyorBuildVersion: ""$OriginalAppveyorBuildVersion"""
+        Write-Host "AppveyorOriginalBuildVersion: ""$AppveyorOriginalBuildVersion"""
         Write-Host ''
         [string] $unnamedArgumentsAsString = if ($UnnamedArguments) { ($UnnamedArguments | % { """$_""" }) -join ', ' } else { '<none>' }
         Write-Host "UnnamedArguments: $unnamedArgumentsAsString"
 
         Write-LogSeparator
-
-        Add-AppveyorMessage `
-            -Verbose `
-            -Message "Starting the build for ""$AppveyorAccountName/$AppveyorProjectSlug""."
 
         Get-ChildItem env:* | Sort-Object Name | Select-Object Name, Value | Format-Table * -Wrap
 
@@ -198,18 +124,36 @@ process
 
         Write-LogSeparator
 
-        if ([string]::IsNullOrWhiteSpace($OriginalAppveyorBuildVersion))
+        if ([string]::IsNullOrWhiteSpace($AppveyorAccountName))
         {
-            throw [ArgumentException]::new('The original Appveyor build version cannot be blank.', 'OriginalAppveyorBuildVersion')
+            throw [ArgumentException]::new('The Appveyor account name cannot be blank.', 'AppveyorAccountName')
         }
+        if ([string]::IsNullOrWhiteSpace($AppveyorProjectSlug))
+        {
+            throw [ArgumentException]::new('The Appveyor project slug cannot be blank.', 'AppveyorProjectSlug')
+        }
+        if ([string]::IsNullOrWhiteSpace($AppveyorBuildNumber))
+        {
+            throw [ArgumentException]::new('The Appveyor build number cannot be blank.', 'AppveyorBuildNumber')
+        }
+        if ([string]::IsNullOrWhiteSpace($AppveyorOriginalBuildVersion))
+        {
+            throw [ArgumentException]::new('The original Appveyor build version cannot be blank.', 'AppveyorOriginalBuildVersion')
+        }
+
+        Add-AppveyorMessage `
+            -Verbose `
+            -Message "Starting the build for ""$AppveyorAccountName/$AppveyorProjectSlug""."
+
+        [string] $computedVersion = '1.2.3'
+
+        Set-AppveyorBuildVariable -Name CI_DEPLOYMENT_VERSION -Value "$computedVersion [build $AppveyorBuildNumber]"
 
         Update-AppveyorBuild `
             -Verbose `
-            -Version "$OriginalAppveyorBuildVersion [1.2.3]"
+            -Version "v$($computedVersion): $AppveyorOriginalBuildVersion"
 
         Write-LogSeparator
-
-        Download-AppveyorBuildJobArtifacts
 
         [string] $s = Get-Content -Raw -Path ./winFile.txt
         $s | ConvertTo-Json -Depth 4 | Out-Host
@@ -228,16 +172,16 @@ process
             Write-LogSeparator
         }
 
-        if ($BuildOnly -or $Deployment)
+        if ($BuildOnly)
         {
             Print-FileList
             return
         }
 
-        [bool] $simulatedTestSuccess = $true #$TestFramework -ine 'net472'
+        [bool] $simulatedTestSuccess = $true
 
         Set-Content `
-            -LiteralPath "$PSScriptRoot\TestResult-$TestFramework.txt" `
+            -LiteralPath "$PSScriptRoot\TestResult.txt" `
             -Value "Simulated Test Result: $simulatedTestSuccess" `
             -Encoding UTF8 `
             | Out-Null

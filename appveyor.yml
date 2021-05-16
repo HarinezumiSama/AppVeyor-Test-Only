@@ -1,4 +1,4 @@
-version: '1.0.{build}'
+version: 'Build #{build}'
 pull_requests:
   do_not_increment_build_number: true
 branches:
@@ -15,32 +15,7 @@ init:
 - cmd: git config --global core.autocrlf true
 max_jobs: 1
 environment:
-  global:
-    CI_ARG_BuildOnly: 'false'
-    CI_ARG_Deploy: 'false'
-    CI_ARG_AppveyorDownloadBuildJobArtifacts: 'false'
-    CI_ARG_TestFramework: ''
-    CI_ARG_AppveyorApiToken:
-      secure: TAumCt718B/rr2JB4kFFuisH5ZV/TwNrZYWNL+UNmqI=
-  matrix:
-  - job_group: BuildJob
-    job_name: 'Build'
-    CI_ARG_BuildOnly: 'true'
-  - job_group: TestJobs
-    job_name: 'Test: net40'
-    job_depends_on: BuildJob
-    CI_ARG_AppveyorDownloadBuildJobArtifacts: 'true'
-    CI_ARG_TestFramework: 'net40'
-  - job_group: TestJobs
-    job_name: 'Test: net472'
-    job_depends_on: BuildJob
-    CI_ARG_AppveyorDownloadBuildJobArtifacts: 'true'
-    CI_ARG_TestFramework: 'net472'
-  - job_group: DeployJobs
-    job_name: Deploy
-    job_depends_on: TestJobs
-    CI_ARG_AppveyorDownloadBuildJobArtifacts: 'true'
-    CI_ARG_Deploy: 'true'
+  CI_ARG_BuildOnly: 'false'
 matrix:
   fast_finish: true
 for:
@@ -49,107 +24,71 @@ for:
       only:
         - develop
         - /feature\/.*/
-    version: '[{branch}] #{build}'
-    environment:
-      CI_ARG_Deploy: 'false'
+    version: 'Build #{build} [{branch}]'
     deploy: off
-  -
-    matrix:
-      only:
-        - job_group: BuildJob
-    artifacts:
-      - path: '**/*.ps1'
-        name: 'bin-$(APPVEYOR_BUILD_NUMBER)'
-  -
-    matrix:
-      only:
-        - job_group: TestJobs
-    artifacts:
-      - path: '**/TestResult.txt'
-        name: 'TestResult-$(APPVEYOR_BUILD_NUMBER)'
-  -
-    matrix:
-      only:
-        - branch: master
-        - job_group: DeployJobs
-    after_build:
-    - ps: >-
-        $Script:ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop;
-
-        Microsoft.PowerShell.Core\Set-StrictMode -Version 1;
-
-        function Print-Directory
-        {
-            Write-Host -ForegroundColor Magenta ('-' * 100)
-
-            Get-ChildItem -Recurse `
-               | Select-Object -Property FullName, Mode, Length `
-               | Group-Object -Property { Split-Path -Parent $_.FullName } `
-               | % { ''; ''; "Directory ""$($_.Name)"""; ''; $_.Group } `
-               | Out-Host
-
-            Write-Host -ForegroundColor Magenta ('-' * 100)
-        }
-
-        [string] $publishDirectory = '.publish'
-
-        [string] $publishSubdirectory = 'inner'
-
-        New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
-
-        New-Item -ItemType Directory -Path "$publishDirectory\$publishSubdirectory" -Force | Out-Null
-
-        Print-Directory
-
-        7z a """$publishDirectory\artifacts-$env:APPVEYOR_BUILD_NUMBER.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.*
-
-        7z a """$publishDirectory\scripts-$env:APPVEYOR_BUILD_NUMBER.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.ps1
-
-        #[string] $specialCharactersArchiveFilePath = "$publishDirectory\$publishSubdirectory\read me %100+ ($env:APPVEYOR_BUILD_NUMBER).zip"
-
-        [string] $specialCharactersArchiveFilePath = "$publishDirectory\$publishSubdirectory\read me 100+ ($env:APPVEYOR_BUILD_NUMBER).zip"
-
-        7z a """$specialCharactersArchiveFilePath""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- README.md
-
-        Print-Directory
-    artifacts:
-      - path: '.publish\**\*.*'
-        name: Artifacts
 build_script:
 - ps: >-
     $Script:ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop;
 
     Microsoft.PowerShell.Core\Set-StrictMode -Version 1;
 
-    Write-Host -ForegroundColor Magenta ('-' * 100)
-
-    Get-ChildItem env:* | Sort-Object Name | Select-Object Name, Value | Format-Table * -Wrap
-
-    Write-Host -ForegroundColor Magenta ('-' * 100)
-
-    Get-ChildItem -Recurse `
-       | Select-Object -Property FullName, Mode, Length `
-       | Group-Object -Property { Split-Path -Parent $_.FullName } `
-       | % { ''; ''; "Directory ""$($_.Name)"""; ''; $_.Group } `
-       | Out-Host
-
-    Write-Host -ForegroundColor Magenta ('-' * 100)
-
 
     & ./build.ps1 `
-        -BuildOnly:([bool]::Parse($env:CI_ARG_BuildOnly)) `
-        -Deployment:([bool]::Parse($env:CI_ARG_Deploy)) `
-        -TestFramework:$env:CI_ARG_TestFramework `
-        -AppveyorDownloadBuildJobArtifacts:([bool]::Parse($env:CI_ARG_AppveyorDownloadBuildJobArtifacts)) `
-        -AppveyorApiToken $env:CI_ARG_AppveyorApiToken
+        -BuildOnly:([bool]::Parse($env:CI_ARG_BuildOnly))
 test: off
+after_build:
+- ps: >-
+    $Script:ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop;
+
+    Microsoft.PowerShell.Core\Set-StrictMode -Version 1;
+
+    function Print-Directory
+    {
+        Write-Host -ForegroundColor Magenta ('-' * 100)
+    
+        Get-ChildItem -Recurse `
+            | Select-Object -Property FullName, Mode, Length `
+            | Group-Object -Property { Split-Path -Parent $_.FullName } `
+            | % { ''; ''; "Directory ""$($_.Name)"""; ''; $_.Group } `
+            | Out-Host
+    
+        Write-Host -ForegroundColor Magenta ('-' * 100)
+    }
+
+    [string] $publishDirectory = '.publish'
+
+    [string] $publishSubdirectory = 'inner'
+
+    New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
+
+    New-Item -ItemType Directory -Path "$publishDirectory\$publishSubdirectory" -Force | Out-Null
+
+    Print-Directory
+
+    7z a """$publishDirectory\artifacts-$env:APPVEYOR_BUILD_NUMBER.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.*
+
+    7z a """$publishDirectory\scripts-$env:APPVEYOR_BUILD_NUMBER.zip""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- *.ps1
+
+    #[string] $specialCharactersArchiveFilePath = "$publishDirectory\$publishSubdirectory\read me %100+ ($env:APPVEYOR_BUILD_NUMBER).zip"
+
+    [string] $specialCharactersArchiveFilePath = "$publishDirectory\$publishSubdirectory\read me 100+ ($env:APPVEYOR_BUILD_NUMBER).zip"
+
+    7z a """$specialCharactersArchiveFilePath""" -y -tzip -r -mx9 '-xr!".git"' "-xr!""$publishDirectory""" -- README.md
+
+    Print-Directory
+artifacts:
+- path: '**/*.ps1'
+  name: 'bin-$(APPVEYOR_BUILD_NUMBER)'
+- path: '**/TestResult.txt'
+  name: 'TestResult-$(APPVEYOR_BUILD_NUMBER)'
+- path: '.publish\**\*.*'
+  name: Artifacts
 deploy:
 - provider: GitHub
   on:
     branch: master
-    CI_ARG_Deploy: true
-  release: 'v$(APPVEYOR_BUILD_VERSION)'
-  description: '$(APPVEYOR_PROJECT_NAME) v$(APPVEYOR_BUILD_VERSION)'
+  release: 'v$(CI_DEPLOYMENT_VERSION)'
+  description: '$(APPVEYOR_PROJECT_NAME) v$(CI_DEPLOYMENT_VERSION)'
   draft: true
   auth_token:
     secure: mSA6Z9mJtt2jbTlFZIWmAxTltAuZsOYbQkxQ/X2tOkpdp1SOJCjbR9dViEyOvAxD
